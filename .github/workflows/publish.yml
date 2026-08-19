@@ -1,0 +1,38 @@
+name: publicar-instagram
+
+on:
+  schedule:
+    - cron: '5 * * * *'      # cada hora (UTC). El script decide segun la hora de Madrid.
+  workflow_dispatch:          # permite lanzarlo a mano desde la pestaña Actions
+
+permissions:
+  contents: write             # para guardar el estado (queue.json) tras publicar
+
+concurrency:
+  group: publicar-instagram   # evita ejecuciones solapadas
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Publicar post en cola
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID:      ${{ secrets.IG_USER_ID }}
+          IMG_BASE_URL:    ${{ secrets.IMG_BASE_URL }}
+        run: python publish.py
+
+      - name: Guardar estado
+        run: |
+          git config user.name  "ivaspa-bot"
+          git config user.email "ivaspa-bot@users.noreply.github.com"
+          git add queue.json
+          git commit -m "estado: ejecucion de publicacion" || echo "sin cambios"
+          git push
